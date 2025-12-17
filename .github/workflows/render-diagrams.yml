@@ -1,0 +1,51 @@
+name: Render PlantUML & Release
+
+on:
+  push:
+    branches: [ "master" ]
+    paths:
+      - "diagrams/**/*.puml"
+      - "diagrams/*.puml"
+      - "includes/**/*.puml"
+      - "includes/*.puml"
+      - "Makefile"
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PlantUML & deps
+        run: sudo apt-get update && sudo apt-get install -y plantuml make
+
+      - name: Render diagrams using make
+        run: make
+
+      - name: Create tag
+        run: |
+          git fetch --tags
+
+          # Get latest tag, default to v0 if none exists
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            NEXT_TAG="v0"
+          else
+            NUMBER=${LATEST_TAG#v}
+            NEXT_TAG="v$((NUMBER + 1))"
+          fi
+
+          echo "TAG=$NEXT_TAG" >> $GITHUB_ENV
+          git tag "$NEXT_TAG"
+          git push origin "$NEXT_TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          files: build/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
