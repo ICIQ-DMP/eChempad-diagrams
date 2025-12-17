@@ -1,0 +1,91 @@
+@startuml
+title eChemPad – Component Diagram phase 2
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam wrapWidth 250
+skinparam maxMessageSize 200
+
+' -----------------------------------------------------------
+' External Systems
+' -----------------------------------------------------------
+package "External Components" {
+    [Dataverse CORA.RDR\n(dataverse.csuc.cat)] <<external>>as Dataverse
+    [Perkin-Elmer Signals Notebook\n(signals.iciq.es)] <<external>> as Signals
+    [ICIQ LDAP\n(ldap.iciq.es)] <<external>> as LDAP
+    [Instruments] <<external>> as ins
+}
+
+' -----------------------------------------------------------
+' Internal Backend Architecture
+' -----------------------------------------------------------
+package "eChemPad Backend" {
+
+    package "Storage Layer" {
+        [PostgreSQL DB\n(app metadata, file metadata)] as PG
+        [MinIO\n(file storage)] as MinIO
+    }
+
+    package "Authentication" {
+        [Apereo CAS] as CAS
+    }
+
+    package "Core Services" {
+        [Uploader Service\n- Upload via HTTP or MinIO reference] as Uploader
+        [Downloader Service\n- Downloads/updates from Signals] as Downloader
+        [Metadata Service\n- Validates metadata\n- Applies metadata standards] as Metadata
+        [DB Service\n- Creates/updates files, journals,\n  experiments using PG + MinIO] as DBService
+    }
+
+    [Gateway\n(echempad.iciq.es)\nEntry point + Security] as Gateway
+}
+
+' -----------------------------------------------------------
+' Frontend Layer
+' -----------------------------------------------------------
+package "Frontend" {
+    [Front-End App\n(React)] as FEApp
+    [Front-End Form\n(Microsoft Forms)] as FEForm
+}
+
+' -----------------------------------------------------------
+' Connections
+' -----------------------------------------------------------
+
+' Frontends → Gateway
+FEApp --> Gateway : API requests
+FEForm --> Gateway : Upload journal to Dataverse
+
+' Gateway → Core Services
+Gateway --> Uploader
+Gateway --> Downloader
+Gateway --> DBService
+Gateway --> CAS : authentication request
+
+' CAS → LDAP
+CAS --> LDAP : validate credentials\nfetch researcher profile
+
+' Core Services → Storage
+DBService --> PG : notebook metadata
+DBService --> MinIO : notebook files
+
+' External Signals → Downloader
+Signals --> Downloader: download journals / experiments\nwith reference ID
+
+' Downloader → DB service
+Downloader --> DBService : save downloaded notebooks
+
+' Uploader/Downloader → Dataverse
+Uploader --> Dataverse : upload dataset (optional)
+DBService --> Uploader : store notebooks
+
+' Instruments → Signals
+ins --> Signals : instrument data
+
+' Metadata
+Metadata --> DBService : update metadata
+DBService --> Metadata: read metadata
+
+@enduml
+
+
