@@ -33,6 +33,7 @@ package "eChemPad Backend" {
     package "Core Services" {
         [Uploader Service\n- Upload via HTTP or MinIO reference] as Uploader
         [Downloader Service\n- Downloads/updates from Signals] as Downloader
+        [Downloader Instruments\n- Downloads instrument data from Instruments] as DownloaderIns
         [Metadata Service\n- Validates metadata\n- Applies metadata standards] as Metadata
         [DB Service\n- Creates/updates files, journals,\n  experiments using PG + MinIO] as DBService
     }
@@ -80,7 +81,8 @@ Uploader --> Dataverse : upload dataset (optional)
 DBService --> Uploader : store notebooks
 
 ' Instruments → Signals
-ins --> Signals : instrument data
+ins --> DownloaderIns : instrument data
+DownloaderIns --> DBService : instrument data
 
 ' Metadata
 Metadata --> DBService : update metadata
